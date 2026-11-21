@@ -85,7 +85,7 @@ tmcuart_read_sync_event(struct timer *timer)
         t->timer.func = tmcuart_read_event;
         return tmcuart_read_event(timer);
     }
-    if (t->pos++ >= 64) {
+    if (t->pos++ >= 128) {
         // Timeout
         t->read_count = 0;
         return tmcuart_finalize(t);
@@ -157,12 +157,11 @@ tmcuart_send_sync_event(struct timer *timer)
         uint32_t offset = cur - t->timer.waketime;
         t->bit_time = offset;
     } else if (t->pos >= 5) {
-        // Last bit of sync nibble just sent - calculate actual baud rate used
-        uint32_t offset = cur - t->timer.waketime, start_offset = t->bit_time;
-        int32_t diff = offset - start_offset;
-        t->bit_time = t->cfg_bit_time + DIV_ROUND_CLOSEST(diff, 4);
+        // On fast 32-bit MCUs, single-IRQ jitter during the sync nibble must
+        // not skew bit_time for the entire frame. Use exact cfg_bit_time.
+        t->bit_time = t->cfg_bit_time;
         t->timer.func = tmcuart_send_event;
-        t->timer.waketime += diff + t->bit_time;
+        t->timer.waketime += t->bit_time;
         return SF_RESCHEDULE;
     }
     t->timer.waketime += t->cfg_bit_time;
