@@ -36,7 +36,9 @@ timer_set_diff(uint32_t value)
 {
     SysTick->LOAD = value;
     SysTick->VAL = 0;
-#if !CONFIG_MACH_GD32F303XX
+#if CONFIG_MACH_GD32F303XX
+    SCB->ICSR = SCB_ICSR_PENDSTCLR_Msk;
+#else
     // Most chips generate a one-shot interrupt after clearing LOAD here.
     // GD32F303 requires LOAD to remain set for the interrupt to trigger.
     SysTick->LOAD = 0;
@@ -160,6 +162,10 @@ void __visible __aligned(16) // aligning helps stabilize perf benchmarks
 SysTick_Handler(void)
 {
     irq_disable();
+#if CONFIG_MACH_GD32F303XX
+    SysTick->LOAD = 0;
+    SCB->ICSR = SCB_ICSR_PENDSTCLR_Msk;
+#endif
     uint32_t diff = timer_dispatch_many();
     timer_set_diff(diff);
     irq_enable();
